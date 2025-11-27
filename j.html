@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Particle Emitter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Georgia', serif;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            position: relative;
+        }
+
+        h1 {
+            display: none;
+        }
+
+        canvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Heart Animation</h1>
+        <canvas id="heartCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('heartCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = 600;
+        canvas.height = 600;
+        
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+       
+        function getHeartPoint(t) {
+            const scale = 8;
+            const x = scale * 16 * Math.pow(Math.sin(t), 3);
+            const y = -scale * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+            return { x: centerX + x, y: centerY + y - 20 };
+        }
+        
+        class Particle {
+            constructor(x, y, angle) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = Math.random() * 2 + 1;
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+                this.life = 1;
+                this.decay = Math.random() * 0.02 + 0.01;
+                this.length = Math.random() * 30 + 15;
+                this.hue = Math.random() * 60 + 280;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                
+                const gradient = ctx.createLinearGradient(0, 0, this.length, 0);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 60%, 0)`);
+                gradient.addColorStop(0.5, `hsla(${this.hue}, 100%, 60%, ${this.life})`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 60%, 0)`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.length, 0);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+        
+        class Sparkle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 3 + 1;
+                this.life = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5 - 0.5;
+                this.hue = Math.random() * 60 + 280;
+                this.twinkle = Math.random() * Math.PI * 2;
+            }
+            
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.twinkle += 0.1;
+            }
+            
+            draw() {
+                const alpha = this.life * (Math.sin(this.twinkle) * 0.5 + 0.5);
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+             
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, 80%, ${alpha})`;
+                ctx.lineWidth = 1;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `hsla(${this.hue}, 100%, 60%, ${alpha})`;
+                
+                ctx.beginPath();
+                ctx.moveTo(-this.size, 0);
+                ctx.lineTo(this.size, 0);
+                ctx.moveTo(0, -this.size);
+                ctx.lineTo(0, this.size);
+                ctx.stroke();
+                
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size * 0.5, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 90%, ${alpha})`;
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+        
+        class FloatingOrb {
+            constructor() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.radius = 150 + Math.random() * 50;
+                this.speed = 0.001 + Math.random() * 0.002;
+                this.size = Math.random() * 4 + 2;
+                this.hue = Math.random() * 60 + 280;
+                this.pulse = Math.random() * Math.PI * 2;
+            }
+            
+            update() {
+                this.angle += this.speed;
+                this.pulse += 0.05;
+            }
+            
+            draw() {
+                const x = centerX + Math.cos(this.angle) * this.radius;
+                const y = centerY + Math.sin(this.angle) * this.radius;
+                const size = this.size * (1 + Math.sin(this.pulse) * 0.3);
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 80%, 0.8)`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 60%, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsla(${this.hue}, 100%, 60%, 0.8)`;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        class RisingHeart {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 8 + 5;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = -0.5 - Math.random() * 0.5;
+                this.life = 1;
+                this.decay = Math.random() * 0.005 + 0.003;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.05;
+                this.hue = Math.random() * 60 + 280;
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+            
+            update() {
+                this.x += this.vx + Math.sin(this.wobble) * 0.2;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.rotation += this.rotationSpeed;
+                this.wobble += 0.1;
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.scale(this.size / 10, this.size / 10);
+                ctx.globalAlpha = this.life;
+                
+              
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                for (let t = 0; t < Math.PI * 2; t += 0.1) {
+                    const x = 16 * Math.pow(Math.sin(t), 3);
+                    const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                    if (t === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.closePath();
+                
+                ctx.fillStyle = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+        
+        class LightRay {
+            constructor() {
+                this.angle = Math.random() * Math.PI * 2;
+                this.length = 0;
+                this.maxLength = 300 + Math.random() * 200;
+                this.width = Math.random() * 2 + 1;
+                this.speed = 5 + Math.random() * 5;
+                this.hue = Math.random() * 60 + 280;
+                this.opacity = 0.3 + Math.random() * 0.3;
+            }
+            
+            update() {
+                this.length += this.speed;
+                if (this.length > this.maxLength) {
+                    this.length = this.maxLength;
+                }
+            }
+            
+            draw() {
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(this.angle);
+                
+                const gradient = ctx.createLinearGradient(0, 0, this.length, 0);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${this.opacity})`);
+                gradient.addColorStop(0.5, `hsla(${this.hue}, 100%, 60%, ${this.opacity * 0.5})`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = this.width;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.length, 0);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+        }
+        
+        let particles = [];
+        let sparkles = [];
+        let orbs = [];
+        let heartPath = [];
+        let drawProgress = 0;
+        let isDrawing = true;
+        let textParticles = [];
+        let textProgress = 0;
+        let isDrawingText = false;
+        let risingHearts = [];
+        let lightRays = [];
+        let showLightRays = false;
+        
+      
+        for (let i = 0; i < 12; i++) {
+            orbs.push(new FloatingOrb());
+        }
+        
+        const textContent = "I Love You";
+        const textY = centerY - 180;
+        
+      
+        for (let t = 0; t < Math.PI * 2; t += 0.01) {
+            heartPath.push(getHeartPoint(t));
+        }
+        
+        function createParticles(x, y) {
+            const numParticles = 3;
+            for (let i = 0; i < numParticles; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                particles.push(new Particle(x, y, angle));
+            }
+            
+           
+            if (Math.random() > 0.5) {
+                sparkles.push(new Sparkle(x, y));
+            }
+        }
+        
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+           
+            orbs.forEach(orb => {
+                orb.update();
+                orb.draw();
+            });
+            
+          
+            if (isDrawing) {
+                drawProgress += 2;
+                if (drawProgress >= heartPath.length) {
+                    drawProgress = heartPath.length;
+                    isDrawing = false;
+                    
+                 
+                    for (let i = 0; i < 50; i++) {
+                        const angle = (Math.PI * 2 * i) / 50;
+                        const distance = 50 + Math.random() * 30;
+                        const x = centerX + Math.cos(angle) * distance;
+                        const y = centerY + Math.sin(angle) * distance;
+                        sparkles.push(new Sparkle(x, y));
+                    }
+                    
+
+                    
+                    
+                    setTimeout(() => {
+                        isDrawingText = true;
+                    }, 500);
+                }
+            }
+            
+           
+            if (isDrawingText) {
+                textProgress += 0.3;
+                const currentLength = Math.min(textProgress, textContent.length);
+                const currentText = textContent.substring(0, Math.floor(currentLength));
+                
+                if (textProgress >= textContent.length) {
+                    textProgress = textContent.length;
+                    isDrawingText = false;
+                    
+                    setTimeout(() => {
+                        drawProgress = 0;
+                        textProgress = 0;
+                        isDrawing = true;
+                        particles = [];
+                        textParticles = [];
+                        lightRays = [];
+                        showLightRays = false;
+                    }, 3000);
+                }
+                
+               
+                ctx.font = '40px "Brush Script MT", cursive';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+             
+                const textGradient = ctx.createLinearGradient(centerX - 100, textY - 20, centerX + 100, textY + 20);
+                textGradient.addColorStop(0, '#ff006e');
+                textGradient.addColorStop(0.5, '#d946ef');
+                textGradient.addColorStop(1, '#8b5cf6');
+                
+                ctx.fillStyle = textGradient;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff006e';
+                ctx.fillText(currentText, centerX, textY);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ffffff';
+                ctx.fillText(currentText, centerX, textY);
+                
+               
+                if (currentText.length > 0 && Math.random() > 0.5) {
+                    const partialWidth = ctx.measureText(currentText).width / 2;
+                    const letterX = centerX + partialWidth;
+                    const letterY = textY;
+                    
+                  
+                    for (let j = 0; j < 3; j++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        textParticles.push(new Particle(letterX + (Math.random() - 0.5) * 20, letterY + (Math.random() - 0.5) * 20, angle));
+                    }
+                    
+                    
+                    if (Math.random() > 0.7) {
+                        sparkles.push(new Sparkle(letterX + (Math.random() - 0.5) * 15, letterY + (Math.random() - 0.5) * 15));
+                    }
+                    
+              
+                    if (Math.random() > 0.8) {
+                        risingHearts.push(new RisingHeart(letterX, letterY));
+                    }
+                }
+                
+                ctx.shadowBlur = 0;
+            } else if (textProgress === textContent.length) {
+              
+                ctx.font = '40px "Brush Script MT", cursive';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const pulse = Math.sin(Date.now() * 0.003) * 0.05 + 1;
+                
+                ctx.save();
+                ctx.translate(centerX, textY);
+                ctx.scale(pulse, pulse);
+                
+                const textGradient = ctx.createLinearGradient(-100, -20, 100, 20);
+                textGradient.addColorStop(0, '#ff006e');
+                textGradient.addColorStop(0.5, '#d946ef');
+                textGradient.addColorStop(1, '#8b5cf6');
+                
+                ctx.fillStyle = textGradient;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff006e';
+                ctx.fillText(textContent, 0, 0);
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#ffffff';
+                ctx.fillText(textContent, 0, 0);
+                
+                ctx.restore();
+                ctx.shadowBlur = 0;
+                
+                
+                if (Math.random() > 0.95) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 60 + Math.random() * 30;
+                    const x = centerX + Math.cos(angle) * distance;
+                    const y = textY + Math.sin(angle) * distance;
+                    sparkles.push(new Sparkle(x, y));
+                }
+                
+                
+                if (Math.random() > 0.97) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 40 + Math.random() * 40;
+                    const x = centerX + Math.cos(angle) * distance;
+                    const y = textY + Math.sin(angle) * distance;
+                    risingHearts.push(new RisingHeart(x, y));
+                }
+            }
+            
+
+            
+            
+            ctx.beginPath();
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#ff006e';
+            
+            const gradient = ctx.createLinearGradient(centerX - 100, centerY - 100, centerX + 100, centerY + 100);
+            gradient.addColorStop(0, '#ff006e');
+            gradient.addColorStop(0.5, '#d946ef');
+            gradient.addColorStop(1, '#8b5cf6');
+            ctx.strokeStyle = gradient;
+            
+            for (let i = 0; i < drawProgress && i < heartPath.length; i++) {
+                const point = heartPath[i];
+                if (i === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            }
+            ctx.stroke();
+            
+           
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ffffff';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            
+            if (isDrawing && drawProgress < heartPath.length) {
+                const currentPoint = heartPath[Math.floor(drawProgress)];
+                if (currentPoint && Math.random() > 0.6) {
+                    createParticles(currentPoint.x, currentPoint.y);
+                }
+                
+                
+                if (Math.random() > 0.95) {
+                    risingHearts.push(new RisingHeart(currentPoint.x, currentPoint.y));
+                }
+            }
+            
+            
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            
+            
+            for (let i = textParticles.length - 1; i >= 0; i--) {
+                textParticles[i].update();
+                textParticles[i].draw();
+                
+                if (textParticles[i].life <= 0) {
+                    textParticles.splice(i, 1);
+                }
+            }
+            
+            
+            for (let i = sparkles.length - 1; i >= 0; i--) {
+                sparkles[i].update();
+                sparkles[i].draw();
+                
+                if (sparkles[i].life <= 0) {
+                    sparkles.splice(i, 1);
+                }
+            }
+            
+            
+            for (let i = risingHearts.length - 1; i >= 0; i--) {
+                risingHearts[i].update();
+                risingHearts[i].draw();
+                
+                if (risingHearts[i].life <= 0) {
+                    risingHearts.splice(i, 1);
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+                                                                                
+        canvas.addEventListener('click', () => {
+            drawProgress = 0;
+            textProgress = 0;
+            isDrawing = true;
+            isDrawingText = false;
+            particles = [];
+            textParticles = [];
+            risingHearts = [];
+            lightRays = [];
+            showLightRays = false;
+            
+            
+            for (let i = 0; i < 30; i++) {
+                const angle = (Math.PI * 2 * i) / 30;
+                const distance = Math.random() * 100 + 50;
+                const x = centerX + Math.cos(angle) * distance;
+                const y = centerY + Math.sin(angle) * distance;
+                sparkles.push(new Sparkle(x, y));
+            }
+        });
+    </script>
+</body>
+</html>
