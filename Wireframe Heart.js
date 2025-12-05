@@ -6,7 +6,6 @@ let rotation = 0;
 let pulseScale = 1;
 let pulseDirection = 1;
 
-// Resize canvas
 const resize = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -14,7 +13,6 @@ const resize = () => {
 resize();
 window.addEventListener("resize", resize);
 
-// Generate heart points
 const generateHeartPoints = (gridSize = 30) => {
     const points = [];
     for (let u = 0; u <= gridSize; u++) {
@@ -41,7 +39,6 @@ const generateHeartPoints = (gridSize = 30) => {
 const points = generateHeartPoints(35);
 const gridSize = 36;
 
-// Shooting stars
 const shootingStars = [];
 const createShootingStar = () => {
     return {
@@ -54,20 +51,16 @@ const createShootingStar = () => {
     };
 };
 
-// Initialize shooting stars
 for (let i = 0; i < 5; i++) {
     shootingStars.push(createShootingStar());
 }
 
-// Aura pulse
 let auraScale = 1;
 let auraDirection = 1;
 
-// Ripples
 const ripples = [];
 let rippleTimer = 0;
 
-// Rotation function
 const rotateY = (point, angle) => {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
@@ -78,7 +71,6 @@ const rotateY = (point, angle) => {
     };
 };
 
-// Projection function
 const project = (point, scale, offsetX, offsetY) => {
     const perspective = 4;
     const z = point.z + perspective;
@@ -90,7 +82,6 @@ const project = (point, scale, offsetX, offsetY) => {
     };
 };
 
-// MAIN ANIMATION LOOP
 const animate = () => {
     ctx.fillStyle = "#000000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -101,15 +92,12 @@ const animate = () => {
 
     rotation += 0.0785;
 
-    // Pulsing
     pulseScale += 0.003 * pulseDirection;
     if (pulseScale > 1.08 || pulseScale < 0.95) pulseDirection *= -1;
 
-    // Aura pulse
     auraScale += 0.005 * auraDirection;
     if (auraScale > 1.3 || auraScale < 1.0) auraDirection *= -1;
 
-    // Draw aura glow
     const auraSize = 300 * auraScale;
     const auraGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, auraSize);
     auraGradient.addColorStop(0, "rgba(0, 212, 255, 0.2)");
@@ -120,7 +108,6 @@ const animate = () => {
     ctx.arc(centerX, centerY, auraSize, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ripple waves
     rippleTimer++;
     if (rippleTimer > 40) {
         ripples.push({ radius: 0, alpha: 1 });
@@ -146,7 +133,6 @@ const animate = () => {
         }
     }
 
-    // Shooting stars
     shootingStars.forEach((star, index) => {
         star.x += Math.cos(star.angle) * star.speed;
         star.y += Math.sin(star.angle) * star.speed;
@@ -177,7 +163,6 @@ const animate = () => {
         ctx.stroke();
     });
 
-    // Rotate and project heart points
     const projectedPoints = points.map((p) => {
         const rotated = rotateY(p, rotation);
         const pulsed = {
@@ -188,7 +173,6 @@ const animate = () => {
         return project(pulsed, scale, centerX, centerY);
     });
 
-    // Gradient for heart glow
     const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 400);
     gradient.addColorStop(0, "#00d4ff");
     gradient.addColorStop(0.5, "#0099ff");
@@ -199,7 +183,6 @@ const animate = () => {
     ctx.strokeStyle = gradient;
     ctx.lineWidth = 1.5;
 
-    // Draw horizontal grid lines
     for (let v = 0; v < gridSize; v++) {
         ctx.beginPath();
         for (let u = 0; u < gridSize; u++) {
@@ -211,7 +194,6 @@ const animate = () => {
         ctx.stroke();
     }
 
-    // Draw vertical grid lines
     for (let u = 0; u < gridSize; u++) {
         ctx.beginPath();
         for (let v = 0; v < gridSize; v++) {
@@ -223,7 +205,6 @@ const animate = () => {
         ctx.stroke();
     }
 
-    // Particles
     ctx.shadowBlur = 0;
     for (let i = 0; i < 80; i++) {
         const angle = (rotation * 2 + i * 0.4) % (Math.PI * 2);
@@ -251,3 +232,4 @@ const animate = () => {
 };
 
 animate();
+
