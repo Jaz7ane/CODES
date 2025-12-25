@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Red Heart</title>
+<style>
+body {margin:0; padding:0; overflow:hidden; background:#000000;} 
+canvas {display:block;}
+</style>
+</head>
+<body>
+<canvas id="heartCanvas"></canvas>
+<script>
+const canvas = document.getElementById('heartCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const centerX = canvas.width/2;
+const centerY = canvas.height/2;
+
+const heartPoints = [];
+const totalPoints = 250;
+for(let i=0;i<totalPoints;i++){
+    const t = Math.PI*2*i/totalPoints;
+    const x = 16*Math.pow(Math.sin(t),3);
+    const y = -(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+    heartPoints.push({x, y});
+}
+
+class Particle {
+    constructor(target){
+        this.x = Math.random()*canvas.width;
+        this.y = Math.random()*canvas.height;
+        this.size = 2 + Math.random()*4; 
+        this.hue = 0; 
+        this.target = target;
+        this.phase = "moveToHeart";
+        this.sparks = [];
+        this.pulseOffset = Math.random()*Math.PI*2; 
+    }
+
+    update(){
+        if(this.phase==="moveToHeart"){
+            const targetX = centerX + this.target.x*12;
+            const targetY = centerY + this.target.y*12;
+            const dx = targetX - this.x;
+            const dy = targetY - this.y;
+            this.vx = dx*0.05;
+            this.vy = dy*0.05;
+            this.x += this.vx;
+            this.y += this.vy;
+
+            if(Math.hypot(dx,dy)<2){
+                this.phase="settled";
+                this.baseX = this.x;
+                this.baseY = this.y;
+                this.delay = Math.random()*50 + 20;
+            }
+
+            if(Math.random()<0.1){
+                this.sparks.push({x: this.x, y: this.y, size:1, life:0.3});
+            }
+        } else if(this.phase==="settled"){
+            this.x += (Math.random()-0.5)*0.5;
+            this.y += (Math.random()-0.5)*0.5;
+
+            if(Math.random()<0.05){
+                this.sparks.push({x: this.x, y: this.y, size:1, life:0.3});
+            }
+
+            if(this.delay !== undefined){
+                this.delay--;
+                if(this.delay <=0){
+                    this.phase="pulsing";
+                }
+            }
+        } else if(this.phase==="pulsing"){
+            const amplitude = 8; 
+            const speed = 0.05; 
+            this.x = this.baseX + (this.baseX - centerX) / 12 * Math.sin(Date.now()*speed + this.pulseOffset) * amplitude;
+            this.y = this.baseY + (this.baseY - centerY) / 12 * Math.sin(Date.now()*speed + this.pulseOffset) * amplitude;
+        }
+
+        this.sparks = this.sparks.filter(s=>s.life>0);
+        this.sparks.forEach(s => s.life-=0.02);
+    }
+
+    drawHeart(x, y, size){
+        ctx.beginPath();
+        const topCurveHeight = size * 0.3;
+        ctx.moveTo(x, y + topCurveHeight);
+        ctx.bezierCurveTo(
+            x, y, 
+            x - size/2, y, 
+            x - size/2, y + topCurveHeight
+        );
+        ctx.bezierCurveTo(
+            x - size/2, y + (size+topCurveHeight)/2, 
+            x, y + (size+topCurveHeight)/2, 
+            x, y + size
+        );
+        ctx.bezierCurveTo(
+            x, y + (size+topCurveHeight)/2, 
+            x + size/2, y + (size+topCurveHeight)/2, 
+            x + size/2, y + topCurveHeight
+        );
+        ctx.bezierCurveTo(
+            x + size/2, y, 
+            x, y, 
+            x, y + topCurveHeight
+        );
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    draw(){
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = `hsl(${this.hue},100%,60%)`; 
+        this.drawHeart(this.x, this.y, this.size);
+
+        this.sparks.forEach(s=>{
+            ctx.save();
+            ctx.globalAlpha = s.life;
+            ctx.fillStyle = `hsl(${this.hue},100%,70%)`; 
+            this.drawHeart(s.x, s.y, s.size);
+            ctx.restore();
+        });
+        ctx.restore();
+    }
+}
+
+let particles = heartPoints.map(pt => new Particle(pt));
+
+canvas.addEventListener('click',(e)=>{
+    for(let i=0;i<5;i++){
+        const randPt = heartPoints[Math.floor(Math.random()*heartPoints.length)];
+        const p = new Particle(randPt);
+        p.x = e.clientX + Math.random()*10-5;
+        p.y = e.clientY + Math.random()*10-5;
+        particles.push(p);
+    }
+});
+
+window.addEventListener('resize',()=>{
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+function animate(){
+    ctx.fillStyle='rgba(0,0,0,0.12)'; 
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    particles.forEach(p=>{
+        p.update();
+        p.draw();
+    });
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+</body>
+</html>
