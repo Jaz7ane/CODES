@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dec 31 - Closing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #050508;
+            font-family: 'Helvetica Neue', sans-serif;
+            height: 100vh;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 45vw;
+            font-weight: 100;
+            color: #ffffff;
+            z-index: 100;
+            opacity: 0;
+            text-shadow: 
+                0 0 40px rgba(255, 255, 255, 0.4),
+                0 0 80px rgba(212, 175, 55, 0.6),
+                0 0 120px rgba(212, 175, 55, 0.3),
+                0 0 160px rgba(212, 175, 55, 0.2);
+            letter-spacing: 0.05em;
+        }
+
+        .year-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24vw;
+            font-weight: 100;
+            z-index: 50;
+            opacity: 0;
+            letter-spacing: 0.15em;
+            white-space: nowrap;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+        .year-digit {
+            display: inline-block;
+            flex: 0 0 auto;
+    
+            color: #ffffff;
+            text-shadow: 
+                0 0 30px rgba(255, 255, 255, 0.5),
+                0 0 60px rgba(212, 175, 55, 0.8),
+                0 0 100px rgba(212, 175, 55, 0.4),
+                0 0 140px rgba(212, 175, 55, 0.2);
+            position: relative;
+        }
+
+        .time-mark {
+            position: absolute;
+            bottom: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.4vw;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 200;
+            letter-spacing: 0.5em;
+            opacity: 0;
+            z-index: 100;
+            text-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+            z-index: 200;
+        }
+
+        .glass-orb {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 255, 255, 0.15), 
+                rgba(212, 175, 55, 0.08) 40%, 
+                rgba(212, 175, 55, 0.03) 70%,
+                transparent);
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 
+                0 8px 32px rgba(212, 175, 55, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .light-streak {
+            position: absolute;
+            height: 1px;
+            background: linear-gradient(90deg, 
+                transparent,
+                rgba(255, 255, 255, 0.6) 30%,
+                rgba(212, 175, 55, 0.8) 50%,
+                rgba(255, 255, 255, 0.6) 70%,
+                transparent);
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+            transform-origin: left center;
+            opacity: 0;
+        }
+
+        .dust-particle {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes breathe {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1);
+                filter: blur(0px);
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.05);
+                filter: blur(1px);
+            }
+        }
+
+        @keyframes shimmerMove {
+            0% { transform: translateX(-100%) rotate(-15deg); }
+            100% { transform: translateX(200vw) rotate(-15deg); }
+        }
+
+        @keyframes floatUp {
+            0% { 
+                transform: translateY(0) translateX(0);
+                opacity: 0.6;
+            }
+            100% { 
+                transform: translateY(-100vh) translateX(var(--drift));
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="vignette"></div>
+    <div class="container">
+        <canvas id="backgroundCanvas"></canvas>
+        <canvas id="particleCanvas"></canvas>
+        <canvas id="lightCanvas"></canvas>
+        <canvas id="glowCanvas"></canvas>
+        
+        <div class="countdown" id="countdown">3</div>
+        
+        <div class="year-container" id="yearContainer">
+            <span class="year-digit">2</span>
+            <span class="year-digit">0</span>
+            <span class="year-digit">2</span>
+            <span class="year-digit">5</span>
+        </div>
+        
+        <div class="time-mark" id="timeMark">23:59</div>
+    </div>
+
+    <script>
+        const bgCanvas = document.getElementById('backgroundCanvas');
+        const particleCanvas = document.getElementById('particleCanvas');
+        const lightCanvas = document.getElementById('lightCanvas');
+        const glowCanvas = document.getElementById('glowCanvas');
+        
+        const bgCtx = bgCanvas.getContext('2d');
+        const particleCtx = particleCanvas.getContext('2d');
+        const lightCtx = lightCanvas.getContext('2d');
+        const glowCtx = glowCanvas.getContext('2d');
+        
+        const countdown = document.getElementById('countdown');
+        const yearContainer = document.getElementById('yearContainer');
+        const timeMark = document.getElementById('timeMark');
+
+        const canvases = [bgCanvas, particleCanvas, lightCanvas, glowCanvas];
+        canvases.forEach(canvas => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        let phase = 'intro';
+        let time = 0;
+        let countdownValue = 3;
+
+        const GOLD = { r: 212, g: 175, b: 55 };
+        const WHITE = { r: 255, g: 255, b: 255 };
+
+        class LuxuryParticle {
+            constructor(x, y, type = 'float') {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.life = 1;
+                this.maxLife = 1;
+                
+                if (type === 'float') {
+                    this.vx = (Math.random() - 0.5) * 0.3;
+                    this.vy = -Math.random() * 0.5 - 0.2;
+                    this.size = Math.random() * 2 + 0.5;
+                    this.baseSize = this.size;
+                    this.twinkle = Math.random() * Math.PI * 2;
+                    this.twinkleSpeed = 0.02 + Math.random() * 0.03;
+                    this.drift = (Math.random() - 0.5) * 0.2;
+                } else if (type === 'burst') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 4 + 2;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.size = Math.random() * 3 + 1.5;
+                    this.friction = 0.96;
+                    this.gravity = 0.02;
+                } else if (type === 'dissolve') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 3 + 1.5;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed - 1.5;
+                    this.size = Math.random() * 2 + 1;
+                    this.friction = 0.98;
+                    this.gravity = 0.03;
+                    this.rotation = Math.random() * Math.PI * 2;
+                    this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                } else if (type === 'trail') {
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.size = Math.random() * 2 + 1;
+                    this.maxLife = 0.5;
+                    this.life = 0.5;
+                }
+            }
+
+            update() {
+                if (this.type === 'float') {
+                    this.x += this.vx + this.drift;
+                    this.y += this.vy;
+                    this.life -= 0.003;
+                    this.twinkle += this.twinkleSpeed;
+                    this.size = this.baseSize * (0.7 + Math.sin(this.twinkle) * 0.3);
+                } else if (this.type === 'burst' || this.type === 'dissolve') {
+                    this.vx *= this.friction;
+                    this.vy *= this.friction;
+                    this.vy += this.gravity;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    this.life -= 0.008;
+                    if (this.rotation !== undefined) {
+                        this.rotation += this.rotationSpeed;
+                    }
+                } else if (this.type === 'trail') {
+                    this.life -= 0.04;
+                }
+            }
+
+            draw() {
+                const alpha = Math.max(0, this.life / this.maxLife);
+                
+                particleCtx.save();
+                particleCtx.translate(this.x, this.y);
+                if (this.rotation !== undefined) {
+                    particleCtx.rotate(this.rotation);
+                }
+                
+                const outerGlow = particleCtx.createRadialGradient(0, 0, 0, 0, 0, this.size * 8);
+                outerGlow.addColorStop(0, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.4})`);
+                outerGlow.addColorStop(0.3, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.2})`);
+                outerGlow.addColorStop(0.6, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.05})`);
+                outerGlow.addColorStop(1, 'transparent');
+                
+                particleCtx.fillStyle = outerGlow;
+                particleCtx.beginPath();
+                particleCtx.arc(0, 0, this.size * 8, 0, Math.PI * 2);
+                particleCtx.fill();
+                
+                const middleGlow = particleCtx.createRadialGradient(0, 0, 0, 0, 0, this.size * 3);
+                middleGlow.addColorStop(0, `rgba(${WHITE.r}, ${WHITE.g}, ${WHITE.b}, ${alpha * 0.6})`);
+                middleGlow.addColorStop(0.5, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.4})`);
+                middleGlow.addColorStop(1, 'transparent');
+                
+                particleCtx.fillStyle = middleGlow;
+                particleCtx.beginPath();
+                particleCtx.arc(0, 0, this.size * 3, 0, Math.PI * 2);
+                particleCtx.fill();
+                
+                particleCtx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+                particleCtx.beginPath();
+                particleCtx.arc(0, 0, this.size * 0.6, 0, Math.PI * 2);
+                particleCtx.fill();
+                
+                if (this.type === 'float' && alpha > 0.7) {
+                    particleCtx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+                    particleCtx.lineWidth = 0.5;
+                    particleCtx.beginPath();
+                    particleCtx.moveTo(-this.size * 4, 0);
+                    particleCtx.lineTo(this.size * 4, 0);
+                    particleCtx.moveTo(0, -this.size * 4);
+                    particleCtx.lineTo(0, this.size * 4);
+                    particleCtx.stroke();
+                }
+                
+                particleCtx.restore();
+            }
+        }
+
+        let particles = [];
+
+        class DreamOrb {
+            constructor() {
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                this.baseX = this.x;
+                this.baseY = this.y;
+                this.size = Math.random() * 150 + 100;
+                this.speed = Math.random() * 0.015 + 0.008;
+                this.offset = Math.random() * Math.PI * 2;
+                this.opacity = Math.random() * 0.12 + 0.06;
+                this.pulseSpeed = Math.random() * 0.02 + 0.01;
+                this.pulseOffset = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x = this.baseX + Math.sin(time * this.speed + this.offset) * 80;
+                this.y = this.baseY + Math.cos(time * this.speed * 0.6 + this.offset) * 50;
+                
+                const pulse = (Math.sin(time * this.pulseSpeed + this.pulseOffset) + 1) * 0.5;
+                this.currentOpacity = this.opacity * (0.7 + pulse * 0.3);
+                this.currentSize = this.size * (0.95 + pulse * 0.05);
+            }
+
+            draw() {
+                const gradient = bgCtx.createRadialGradient(
+                    this.x - this.currentSize * 0.2, 
+                    this.y - this.currentSize * 0.2, 
+                    0,
+                    this.x, 
+                    this.y, 
+                    this.currentSize
+                );
+                gradient.addColorStop(0, `rgba(${WHITE.r}, ${WHITE.g}, ${WHITE.b}, ${this.currentOpacity * 0.3})`);
+                gradient.addColorStop(0.3, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${this.currentOpacity * 0.4})`);
+                gradient.addColorStop(0.6, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${this.currentOpacity * 0.15})`);
+                gradient.addColorStop(1, 'transparent');
+                
+                bgCtx.fillStyle = gradient;
+                bgCtx.beginPath();
+                bgCtx.arc(this.x, this.y, this.currentSize, 0, Math.PI * 2);
+                bgCtx.fill();
+            }
+        }
+
+        const orbs = Array.from({ length: 7 }, () => new DreamOrb());
+
+        function drawEtherealRays() {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const numRays = 16;
+            
+            for (let i = 0; i < numRays; i++) {
+                const angle = (i / numRays) * Math.PI * 2 + time * 0.003;
+                const length = Math.min(window.innerWidth, window.innerHeight) * 0.7;
+                const pulse = (Math.sin(time * 0.02 + i * 0.5) + 1) * 0.5;
+                const wave = Math.sin(time * 0.01 + i * 0.3);
+                
+                const endX = centerX + Math.cos(angle) * length;
+                const endY = centerY + Math.sin(angle) * length;
+                
+                for (let j = 0; j < 3; j++) {
+                    const offset = j * 2;
+                    const gradient = lightCtx.createLinearGradient(
+                        centerX, centerY,
+                        endX + offset, endY + offset
+                    );
+                    
+                    const baseOpacity = 0.03 * pulse * (1 - j * 0.3);
+                    gradient.addColorStop(0, `rgba(${WHITE.r}, ${WHITE.g}, ${WHITE.b}, ${baseOpacity * 0.5})`);
+                    gradient.addColorStop(0.2, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${baseOpacity})`);
+                    gradient.addColorStop(0.5, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${baseOpacity * 0.5})`);
+                    gradient.addColorStop(1, 'transparent');
+                    
+                    lightCtx.strokeStyle = gradient;
+                    lightCtx.lineWidth = 3 - j;
+                    lightCtx.beginPath();
+                    lightCtx.moveTo(centerX, centerY);
+                    lightCtx.lineTo(endX + offset, endY + offset);
+                    lightCtx.stroke();
+                }
+            }
+            
+            const centralGlow = lightCtx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 200);
+            const glowPulse = (Math.sin(time * 0.03) + 1) * 0.5;
+            centralGlow.addColorStop(0, `rgba(${WHITE.r}, ${WHITE.g}, ${WHITE.b}, ${0.08 * glowPulse})`);
+            centralGlow.addColorStop(0.5, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${0.04 * glowPulse})`);
+            centralGlow.addColorStop(1, 'transparent');
+            
+            lightCtx.fillStyle = centralGlow;
+            lightCtx.beginPath();
+            lightCtx.arc(centerX, centerY, 200, 0, Math.PI * 2);
+            lightCtx.fill();
+        }
+
+        class LuxuryShell {
+            constructor(x, targetY) {
+                this.x = x;
+                this.y = window.innerHeight + 50;
+                this.targetY = targetY;
+                this.vy = -10;
+                this.gravity = 0.2;
+                this.exploded = false;
+                this.trail = [];
+                this.size = 5;
+                this.hue = Math.random() * 30;
+            }
+
+            update() {
+                if (!this.exploded) {
+                    this.vy += this.gravity;
+                    this.y += this.vy;
+                    
+                    if (Math.random() > 0.5) {
+                        particles.push(new LuxuryParticle(this.x, this.y, 'trail'));
+                    }
+                    
+                    this.trail.push({ x: this.x, y: this.y, life: 1 });
+                    if (this.trail.length > 40) this.trail.shift();
+                    
+                    this.trail.forEach(t => t.life -= 0.025);
+                    
+                    if (this.y <= this.targetY || this.vy > 0) {
+                        this.explode();
+                    }
+                }
+            }
+
+            explode() {
+                this.exploded = true;
+                
+                const rings = 3;
+                for (let ring = 0; ring < rings; ring++) {
+                    const particlesInRing = 25 + ring * 10;
+                    setTimeout(() => {
+                        for (let i = 0; i < particlesInRing; i++) {
+                            setTimeout(() => {
+                                particles.push(new LuxuryParticle(this.x, this.y, 'burst'));
+                            }, i * 3);
+                        }
+                    }, ring * 100);
+                }
+                
+                this.createBloomRing();
+                this.createGlowPulse();
+            }
+
+            createBloomRing() {
+                const numRings = 4;
+                for (let i = 0; i < numRings; i++) {
+                    setTimeout(() => {
+                        const ring = document.createElement('div');
+                        ring.style.position = 'absolute';
+                        ring.style.border = `${3 - i * 0.5}px solid rgba(212, 175, 55, ${0.7 - i * 0.15})`;
+                        ring.style.borderRadius = '50%';
+                        ring.style.left = this.x + 'px';
+                        ring.style.top = this.y + 'px';
+                        ring.style.width = '20px';
+                        ring.style.height = '20px';
+                        ring.style.marginLeft = '-10px';
+                        ring.style.marginTop = '-10px';
+                        ring.style.pointerEvents = 'none';
+                        ring.style.boxShadow = `
+                            0 0 20px rgba(212, 175, 55, 0.6),
+                            0 0 40px rgba(212, 175, 55, 0.4),
+                            inset 0 0 20px rgba(212, 175, 55, 0.3)
+                        `;
+                        document.body.appendChild(ring);
+
+                        ring.style.transition = `all ${2.5 + i * 0.3}s cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
+                        setTimeout(() => {
+                            ring.style.width = (700 + i * 100) + 'px';
+                            ring.style.height = (700 + i * 100) + 'px';
+                            ring.style.marginLeft = -(350 + i * 50) + 'px';
+                            ring.style.marginTop = -(350 + i * 50) + 'px';
+                            ring.style.opacity = '0';
+                        }, 10);
+
+                        setTimeout(() => ring.remove(), 2500 + i * 300);
+                    }, i * 120);
+                }
+            }
+
+            createGlowPulse() {
+                const pulse = document.createElement('div');
+                pulse.className = 'glass-orb';
+                pulse.style.left = this.x + 'px';
+                pulse.style.top = this.y + 'px';
+                pulse.style.width = '30px';
+                pulse.style.height = '30px';
+                pulse.style.marginLeft = '-15px';
+                pulse.style.marginTop = '-15px';
+                pulse.style.background = 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), rgba(212, 175, 55, 0.6) 40%, transparent 70%)';
+                pulse.style.filter = 'blur(10px)';
+                document.body.appendChild(pulse);
+
+                pulse.style.transition = 'all 1.5s ease-out';
+                setTimeout(() => {
+                    pulse.style.width = '300px';
+                    pulse.style.height = '300px';
+                    pulse.style.marginLeft = '-150px';
+                    pulse.style.marginTop = '-150px';
+                    pulse.style.opacity = '0';
+                }, 10);
+
+                setTimeout(() => pulse.remove(), 1500);
+            }
+
+            draw() {
+                if (!this.exploded) {
+                    this.trail.forEach((t, i) => {
+                        const alpha = t.life;
+                        const size = this.size * (0.5 + t.life * 0.5);
+                        
+                        const gradient = lightCtx.createRadialGradient(t.x, t.y, 0, t.x, t.y, size * 4);
+                        gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.9})`);
+                        gradient.addColorStop(0.2, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.7})`);
+                        gradient.addColorStop(0.5, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, ${alpha * 0.3})`);
+                        gradient.addColorStop(1, 'transparent');
+                        
+                        lightCtx.fillStyle = gradient;
+                        lightCtx.beginPath();
+                        lightCtx.arc(t.x, t.y, size * 4, 0, Math.PI * 2);
+                        lightCtx.fill();
+                    });
+                    
+                    const shellGradient = lightCtx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 4);
+                    shellGradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                    shellGradient.addColorStop(0.3, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, 0.9)`);
+                    shellGradient.addColorStop(0.6, `rgba(${GOLD.r}, ${GOLD.g}, ${GOLD.b}, 0.4)`);
+                    shellGradient.addColorStop(1, 'transparent');
+                    
+                    lightCtx.fillStyle = shellGradient;
+                    lightCtx.beginPath();
+                    lightCtx.arc(this.x, this.y, this.size * 4, 0, Math.PI * 2);
+                    lightCtx.fill();
+                }
+            }
+        }
+
+        let shells = [];
+
+        function createFloatingDust() {
+            for (let i = 0; i < 80; i++) {
+                setTimeout(() => {
+                    const dust = document.createElement('div');
+                    dust.className = 'dust-particle';
+                    dust.style.left = Math.random() * window.innerWidth + 'px';
+                    dust.style.bottom = '-10px';
+                    dust.style.setProperty('--drift', (Math.random() - 0.5) * 200 + 'px');
+                    dust.style.animation = `floatUp ${10 + Math.random() * 15}s linear infinite`;
+                    dust.style.animationDelay = Math.random() * 5 + 's';
+                    document.body.appendChild(dust);
+                }, i * 100);
+            }
+        }
+
+        function createLightStreak() {
+            const streak = document.createElement('div');
+            streak.className = 'light-streak';
+            streak.style.top = (20 + Math.random() * 60) + '%';
+            streak.style.left = '-100px';
+            streak.style.width = (200 + Math.random() * 300) + 'px';
+            document.body.appendChild(streak);
+
+            streak.style.animation = `shimmerMove ${2 + Math.random() * 2}s ease-in-out`;
+            setTimeout(() => streak.remove(), 4000);
+        }
+
+        function animateCountdown() {
+            countdown.textContent = countdownValue;
+            countdown.style.opacity = '0';
+            countdown.style.transform = 'translate(-50%, -50%) scale(0.6)';
+            countdown.style.filter = 'blur(20px)';
+            
+            setTimeout(() => {
+                countdown.style.transition = 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                countdown.style.opacity = '1';
+                countdown.style.transform = 'translate(-50%, -50%) scale(1)';
+                countdown.style.filter = 'blur(0px)';
+                
+                for (let i = 0; i < 60; i++) {
+                    setTimeout(() => {
+                        particles.push(new LuxuryParticle(
+                            window.innerWidth / 2 + (Math.random() - 0.5) * 300,
+                            window.innerHeight / 2 + (Math.random() - 0.5) * 300,
+                            'burst'
+                        ));
+                    }, i * 10);
+                }
+                
+                if (countdownValue <= 2) {
+                    setTimeout(() => createLightStreak(), 300);
+                }
+            }, 50);
+
+            setTimeout(() => {
+                countdown.style.transition = 'all 0.8s ease-out';
+                countdown.style.opacity = '0';
+                countdown.style.transform = 'translate(-50%, -50%) scale(1.5)';
+                countdown.style.filter = 'blur(30px)';
+            }, 800);
+
+            setTimeout(() => {
+                countdownValue--;
+                if (countdownValue > 0) {
+                    animateCountdown();
+                } else {
+                    phase = 'dissolve';
+                    startDissolve();
+                }
+            }, 1200);
+        }
+
+        function startDissolve() {
+            yearContainer.style.opacity = '1';
+            yearContainer.style.transition = 'opacity 1s ease-in';
+            
+            const digits = document.querySelectorAll('.year-digit');
+            
+            setTimeout(() => {
+                digits.forEach((digit, index) => {
+                    setTimeout(() => {
+                        const rect = digit.getBoundingClientRect();
+                        const centerX = rect.left + rect.width / 2;
+                        const centerY = rect.top + rect.height / 2;
+
+                        for (let i = 0; i < 120; i++) {
+                            setTimeout(() => {
+                                particles.push(new LuxuryParticle(
+                                    centerX + (Math.random() - 0.5) * rect.width * 0.9,
+                                    centerY + (Math.random() - 0.5) * rect.height * 0.9,
+                                    'dissolve'
+                                ));
+                            }, i * 8);
+                        }
+
+                        const orb = document.createElement('div');
+                        orb.className = 'glass-orb';
+                        orb.style.left = centerX + 'px';
+                        orb.style.top = centerY + 'px';
+                        orb.style.width = '50px';
+                        orb.style.height = '50px';
+                        orb.style.marginLeft = '-25px';
+                        orb.style.marginTop = '-25px';
+                        document.body.appendChild(orb);
+
+                        orb.style.transition = 'all 1.5s ease-out';
+                        setTimeout(() => {
+                            orb.style.width = '400px';
+                            orb.style.height = '400px';
+                            orb.style.marginLeft = '-200px';
+                            orb.style.marginTop = '-200px';
+                            orb.style.opacity = '0';
+                        }, 10);
+
+                        setTimeout(() => orb.remove(), 1500);
+
+                        digit.style.transition = 'all 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                        digit.style.opacity = '0';
+                        digit.style.filter = 'blur(40px)';
+                        digit.style.transform = `translateY(${150 + Math.random() * 100}px) scale(2) rotate(${(Math.random() - 0.5) * 30}deg)`;
+                    }, index * 400);
+                });
+
+                setTimeout(() => {
+                    phase = 'anticipation';
+                    startAnticipation();
+                }, 2500);
+            }, 1000);
+        }
+
+        function startAnticipation() {
+            timeMark.style.opacity = '1';
+            timeMark.style.transition = 'opacity 2.5s ease-in';
+            
+            createFloatingDust();
+
+            const positions = [
+                { x: window.innerWidth * 0.2, y: window.innerHeight * 0.25 },
+                { x: window.innerWidth * 0.4, y: window.innerHeight * 0.3 },
+                { x: window.innerWidth * 0.5, y: window.innerHeight * 0.2 },
+                { x: window.innerWidth * 0.6, y: window.innerHeight * 0.28 },
+                { x: window.innerWidth * 0.8, y: window.innerHeight * 0.24 }
+            ];
+
+            positions.forEach((pos, index) => {
+                setTimeout(() => {
+                    shells.push(new LuxuryShell(pos.x, pos.y));
+                }, index * 1000);
+            });
+
+            setInterval(() => {
+                if (phase === 'anticipation' || phase === 'finale') {
+                    for (let i = 0; i < 4; i++) {
+                        particles.push(new LuxuryParticle(
+                            Math.random() * window.innerWidth,
+                            window.innerHeight + 20,
+                            'float'
+                        ));
+                    }
+                }
+            }, 150);
+
+            setInterval(() => {
+                if ((phase === 'anticipation' || phase === 'finale') && Math.random() > 0.7) {
+                    createLightStreak();
+                }
+            }, 2000);
+
+            setTimeout(() => {
+                phase = 'finale';
+                startFinale();
+            }, 7000);
+        }
+
+        function startFinale() {
+            const explosionRings = 8;
+            for (let ring = 0; ring < explosionRings; ring++) {
+                setTimeout(() => {
+                    const particlesInRing = 40;
+                    const radius = ring * 60;
+                    for (let i = 0; i < particlesInRing; i++) {
+                        const angle = (i / particlesInRing) * Math.PI * 2;
+                        particles.push(new LuxuryParticle(
+                            window.innerWidth / 2 + Math.cos(angle) * radius,
+                            window.innerHeight / 2 + Math.sin(angle) * radius,
+                            'burst'
+                        ));
+                    }
+                }, ring * 150);
+            }
+
+            const bloom = document.createElement('div');
+            bloom.style.position = 'fixed';
+            bloom.style.top = '50%';
+            bloom.style.left = '50%';
+            bloom.style.width = '200px';
+            bloom.style.height = '200px';
+            bloom.style.marginLeft = '-100px';
+            bloom.style.marginTop = '-100px';
+            bloom.style.background = 'radial-gradient(circle at center, rgba(255, 255, 255, 0.9), rgba(212, 175, 55, 0.6) 40%, transparent 70%)';
+            bloom.style.pointerEvents = 'none';
+            bloom.style.zIndex = '150';
+            bloom.style.filter = 'blur(40px)';
+            document.body.appendChild(bloom);
+
+            bloom.style.transition = 'all 3s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+            setTimeout(() => {
+                bloom.style.width = '3000px';
+                bloom.style.height = '3000px';
+                bloom.style.marginLeft = '-1500px';
+                bloom.style.marginTop = '-1500px';
+                bloom.style.opacity = '0';
+            }, 100);
+
+            for (let i = 0; i < 6; i++) {
+                setTimeout(() => createLightStreak(), i * 300);
+            }
+
+            timeMark.textContent = '00:00';
+            timeMark.style.fontSize = '2.5vw';
+            timeMark.style.letterSpacing = '0.8em';
+            timeMark.style.transition = 'all 1.5s ease-out';
+        }
+
+        function animate() {
+            time++;
+            
+            bgCtx.fillStyle = 'rgba(5, 5, 8, 0.08)';
+            bgCtx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+            
+            particleCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            lightCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            
+            orbs.forEach(orb => {
+                orb.update();
+                orb.draw();
+            });
+
+            if (phase === 'anticipation' || phase === 'finale') {
+                drawEtherealRays();
+            }
+
+            shells = shells.filter(shell => {
+                shell.update();
+                shell.draw();
+                return !shell.exploded;
+            });
+
+            particleCtx.globalCompositeOperation = 'lighter';
+            particles = particles.filter(p => {
+                p.update();
+                if (p.life > 0) {
+                    p.draw();
+                    return true;
+                }
+                return false;
+            });
+            particleCtx.globalCompositeOperation = 'source-over';
+
+            requestAnimationFrame(animate);
+        }
+
+        setTimeout(() => {
+            phase = 'countdown';
+            animateCountdown();
+        }, 1500);
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            canvases.forEach(canvas => {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            });
+        });
+    </script>
+</body>
+</html>
