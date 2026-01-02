@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Realistic 3D Earth with Saturn rings</title>
+<style>
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at center, #000010 0%, #000 100%);
+    overflow: hidden;
+  }
+  #saturnCanvas {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="saturnCanvas"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  const canvas = document.getElementById('saturnCanvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 5;
+  
+  const light = new THREE.DirectionalLight(0xffffff, 1.5);
+  light.position.set(5, 3, 5);
+  scene.add(light);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+  
+  const saturnGeometry = new THREE.SphereGeometry(1, 64, 64);
+  const saturnMaterial = new THREE.MeshPhongMaterial({
+    color: 0xf4d29f,
+    shininess: 10
+  });
+  const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
+  scene.add(saturn);
+  
+  const loader = new THREE.TextureLoader();
+  loader.crossOrigin = 'anonymous';
+  loader.load(
+    'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/textures/planets/earth_atmos_2048.jpg',
+    (texture) => {
+      saturnMaterial.map = texture;
+      saturnMaterial.needsUpdate = true;
+    },
+    undefined,
+    (error) => {
+      console.log('Texture failed to load, using color instead');
+    }
+  );
+  
+  const ringGeometry = new THREE.RingGeometry(1.3, 2.3, 256);
+  
+  const ringCanvas = document.createElement('canvas');
+  ringCanvas.width = 1024;
+  ringCanvas.height = 128;
+  const ctx = ringCanvas.getContext('2d');
+  
+  ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+  ctx.fillRect(0, 0, 1024, 128);
+  
+  for (let i = 0; i < 1024; i++) {
+    const pos = i / 1024;
+    
+    let edgeFade = 1;
+    if (pos < 0.08) {
+      edgeFade = pos / 0.08;
+    } else if (pos > 0.92) {
+      edgeFade = (1 - pos) / 0.08;
+    }
+    
+    let alpha = 0;
+    let brightness = 1;
+    
+    if (pos > 0.08 && pos < 0.35) {
+      alpha = 0.75 + Math.sin(pos * 200) * 0.1;
+      brightness = 0.85 + Math.sin(pos * 180) * 0.08;
+    }
+    else if (pos >= 0.35 && pos < 0.38) {
+      alpha = 0.35 + Math.sin(pos * 400) * 0.15;
+      brightness = 0.55;
+    }
+    else if (pos >= 0.38 && pos < 0.72) {
+      alpha = 0.9 + Math.sin(pos * 300) * 0.08;
+      brightness = 0.95 + Math.sin(pos * 250) * 0.04;
+    }
+    else if (pos >= 0.72 && pos < 0.92) {
+      alpha = 0.7 + Math.sin(pos * 220) * 0.1;
+      brightness = 0.8 + Math.sin(pos * 190) * 0.06;
+    }
+    
+    alpha *= edgeFade;
+    
+    for (let j = 0; j < 128; j++) {
+      const vertPos = j / 128;
+      
+      const radialVar = 1 - Math.abs(vertPos - 0.5) * 0.3;
+     
+      const particleNoise = Math.random() * 0.15;
+      const finalAlpha = Math.max(0.3, alpha * radialVar + particleNoise);
+     
+      const baseColor = {
+        r: 180 + brightness * 40 + Math.random() * 20,
+        g: 160 + brightness * 35 + Math.random() * 15,
+        b: 130 + brightness * 30 + Math.random() * 15
+      };
+      
+      ctx.fillStyle = `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${finalAlpha})`;
+      ctx.fillRect(i, j, 1, 1);
+    }
+  }
+  const ringTexture = new THREE.CanvasTexture(ringCanvas);
+  
+  const ringMaterial = new THREE.MeshBasicMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.95
+  });
+  const rings = new THREE.Mesh(ringGeometry, ringMaterial);
+  rings.rotation.x = Math.PI / 2.3;
+  saturn.add(rings);
+
+  const starGeometry = new THREE.BufferGeometry();
+  const starCount = 5000;
+  const starVertices = [];
+  for (let i = 0; i < starCount; i++) {
+    const x = (Math.random() - 0.5) * 2000;
+    const y = (Math.random() - 0.5) * 2000;
+    const z = -Math.random() * 2000;
+    starVertices.push(x, y, z);
+  }
+  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+  const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 1.2 });
+  const stars = new THREE.Points(starGeometry, starMaterial);
+  scene.add(stars);
+ 
+  function animate() {
+    requestAnimationFrame(animate);
+    saturn.rotation.y += 0.002;
+    stars.rotation.y += 0.0003;
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+</body>
+</html>
