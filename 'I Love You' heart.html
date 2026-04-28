@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>I Love You</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); init(); });
+
+const TEXT = "I Love You ";
+const pinks = [
+  '#ff69b4','#ff85c1','#ff1493','#ff6eb4','#ffb6c1',
+  '#ff4da6','#fc8eac','#e75480','#ff007f','#c71585',
+  '#ff82ab','#db7093','#ff3399','#ff77b7','#ffa0bc',
+  '#f06292','#ff5fa0','#ec407a','#e91e8c','#ad1457'
+];
+
+function pinkFor(i) {
+  return pinks[((i * 7) + 3) % pinks.length];
+}
+
+const HEART_STEPS  = 100;
+const SPEED        = 2.2;                      
+const LETTER_GAP   = 13;                       
+const SINE_AMP     = 15;
+const SINE_FREQ    = 0.042;
+const LERP_SPEED   = 1 / (LETTER_GAP / SPEED); 
+const EXIT_GAP_TRIGGER = LETTER_GAP;
+
+let cx, cy, heartSize, heartPath;
+let BASE_Y, STOP_X;
+
+let letters          = [];
+let globalFrame      = 0;
+let lastSpawnFrame   = -999;
+let totalSpawned     = 0;
+let queuedCount      = 0;
+let heartPlacedCount = 0;
+let placingLetter    = null;
+let placingProgress  = 0;
+let allOnHeart       = false;
+let exitingOrder     = [];
+let exitingIdx       = 0;
+let phase            = 'incoming';
+
+function heartXY(t) {
+  const x = cx + heartSize * 16 * Math.pow(Math.sin(t), 3);
+  const y = cy - heartSize * (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t));
+  return { x, y };
+}
+
+function buildHeartPath() {
+  const pts = [];
+  for (let i = 0; i < HEART_STEPS; i++) {
+    const t = Math.PI / 2 + (i / HEART_STEPS) * Math.PI * 2;
+    pts.push(heartXY(t));
+  }
+  return pts;
+}
+
+function getHeartPos(step) {
+  const s = ((step % HEART_STEPS) + HEART_STEPS) % HEART_STEPS;
+  return heartPath[s];
+}
+
+function sineY(x) {
+  return BASE_Y + Math.sin((x - canvas.width) * SINE_FREQ) * SINE_AMP;
+}
+
+function queueX(pos) {
+  return STOP_X + pos * LETTER_GAP;
+}
+
+function init() {
+  const W = canvas.width;
+  const H = canvas.height;
+
+  BASE_Y    = H * 0.70;
+  heartSize = Math.min(W, H) / 75;
+  cx        = W / 2;
+  cy        = BASE_Y - heartSize * 20;
+
+  heartPath = buildHeartPath();
+  STOP_X    = heartPath[0].x;
+
+  letters          = [];
+  globalFrame      = 0;
+  lastSpawnFrame   = -999;
+  totalSpawned     = 0;
+  queuedCount      = 0;
+  heartPlacedCount = 0;
+  placingLetter    = null;
+  placingProgress  = 0;
+  allOnHeart       = false;
+  exitingOrder     = [];
+  exitingIdx       = 0;
+  phase            = 'incoming';
+}
+
+function spawnLetter(idx) {
+  return {
+    idx,
+    char : TEXT[idx % TEXT.length],
+    color: pinkFor(idx),
+    state: 'walk',
+    x    : canvas.width + 50,
+    y    : BASE_Y,
+    queuePos    : null,
+    queueArrived: false,
+    heartStep   : idx,
+    walkFromX   : 0,
+    walkFromY   : 0,
+    returnFromX  : 0,
+    returnFromY  : 0,
+    returnProgress: 0,
+  };
+}
+
+function update() {
+  globalFrame++;
+  const spawnInterval = Math.ceil(LETTER_GAP / SPEED); 
+
+  if (phase === 'incoming' && totalSpawned < HEART_STEPS) {
+    if (globalFrame - lastSpawnFrame >= spawnInterval) {
+      letters.push(spawnLetter(totalSpawned));
+      totalSpawned++;
+      lastSpawnFrame = globalFrame;
+      if (totalSpawned === HEART_STEPS) phase = 'placing';
+    }
+  }
+
+  if (phase === 'returning' && exitingIdx < exitingOrder.length) {
+    let ready = false;
+    if (exitingIdx === 0) {
+      ready = true;
+    } else {
+      const prev = exitingOrder[exitingIdx - 1];
+      if (prev.state === 'exit' && prev.x <= STOP_X - EXIT_GAP_TRIGGER) {
+        ready = true;
+      }
+    }
+    if (ready) {
+      const l = exitingOrder[exitingIdx];
+      if (l && l.state === 'heart') {
+        l.state          = 'heart_to_sine';
+        l.returnFromX    = l.x;
+        l.returnFromY    = l.y;
+        l.returnProgress = 0;
+      }
+      exitingIdx++;
+    }
+  }
+
+  for (let i = 0; i < letters.length; i++) {
+    const l = letters[i];
+
+    if (l.state === 'walk') {
+      if (l.queuePos === null) {
+        l.x -= SPEED;
+        l.y  = sineY(l.x);
+        const backX = queueX(queuedCount);
+        if (l.x <= backX) {
+          l.queuePos     = queuedCount;
+          queuedCount++;
+          l.queueArrived = true;
+          l.x            = backX;
+        }
+      } else {
+        const targetX = queueX(l.queuePos);
+        if (l.x > targetX) {
+          l.x -= SPEED;
+          if (l.x < targetX) l.x = targetX;
+        } else {
+          l.x = targetX;
+        }
+        l.y = sineY(l.x);
+      }
+
+    } else if (l.state === 'walk_to_heart') {
+      placingProgress += LERP_SPEED;
+      if (placingProgress >= 1) {
+        const hp = getHeartPos(l.heartStep);
+        l.x = hp.x; l.y = hp.y;
+        l.state = 'heart';
+        placingLetter = null;
+        heartPlacedCount++;
+        for (let j = 0; j < letters.length; j++) {
+          const q = letters[j];
+          if (q.state === 'walk' && q.queuePos !== null && q.queuePos > 0) {
+            q.queuePos--;
+          }
+        }
+        queuedCount = Math.max(0, queuedCount - 1);
+      } else {
+        const hp = getHeartPos(l.heartStep);
+        l.x = l.walkFromX + (hp.x - l.walkFromX) * placingProgress;
+        l.y = l.walkFromY + (hp.y - l.walkFromY) * placingProgress;
+      }
+
+    } else if (l.state === 'heart') {
+      const hp = getHeartPos(l.heartStep);
+      l.x = hp.x; l.y = hp.y;
+
+    } else if (l.state === 'heart_to_sine') {
+      l.returnProgress += LERP_SPEED;
+      if (l.returnProgress >= 1) {
+        l.x     = STOP_X;
+        l.y     = sineY(STOP_X);
+        l.state = 'exit';
+      } else {
+        const p = l.returnProgress;
+        l.x = l.returnFromX + (STOP_X        - l.returnFromX) * p;
+        l.y = l.returnFromY + (sineY(STOP_X) - l.returnFromY) * p;
+      }
+
+    } else if (l.state === 'exit') {
+      l.x -= SPEED;
+      l.y  = sineY(l.x);
+    }
+  }
+
+  if (placingLetter === null && queuedCount > 0 && phase !== 'waiting' && phase !== 'returning' && phase !== 'done') {
+    for (let i = 0; i < letters.length; i++) {
+      const l = letters[i];
+      if (l.state === 'walk' && l.queuePos === 0 && l.queueArrived) {
+        l.state         = 'walk_to_heart';
+        l.walkFromX     = l.x;
+        l.walkFromY     = l.y;
+        placingLetter   = l;
+        placingProgress = 0;
+        break;
+      }
+    }
+  }
+
+  if (!allOnHeart && heartPlacedCount === HEART_STEPS && placingLetter === null) {
+    allOnHeart = true;
+    phase = 'waiting';
+    exitingOrder = [...letters].sort((a, b) => a.idx - b.idx);
+    setTimeout(() => {
+      exitingIdx = 0;
+      phase      = 'returning';
+    }, 700);
+  }
+
+  for (let i = letters.length - 1; i >= 0; i--) {
+    if (letters[i].state === 'exit' && letters[i].x < -80) {
+      letters.splice(i, 1);
+    }
+  }
+
+  if (phase === 'returning' && exitingIdx >= exitingOrder.length && letters.length === 0) {
+    phase = 'done';
+    setTimeout(() => init(), 500);
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "bold 16px Georgia, serif";
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  for (const l of letters) {
+    ctx.fillStyle = l.color;
+    ctx.fillText(l.char, l.x, l.y);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+init();
+loop();
+</script>
+</body>
+</html>
